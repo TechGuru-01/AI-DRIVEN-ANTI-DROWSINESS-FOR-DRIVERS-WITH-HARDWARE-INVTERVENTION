@@ -1,0 +1,11 @@
+{
+    "users": [],
+    "contacts": [],
+    "lockout": {
+        "timestamp": null,
+        "lockout_reason": null,
+        "attempts": 0,
+        "lockout_handled": true,
+        "first_attempt": "2026-04-29 03:25:46 PM"
+    }
+}
