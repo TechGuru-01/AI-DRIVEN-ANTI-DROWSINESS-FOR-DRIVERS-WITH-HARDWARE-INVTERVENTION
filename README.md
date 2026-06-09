@@ -4,8 +4,8 @@ The system operates via an automated, distributed network topology that bridges 
 
 ### 1. Pre-Drive Security Check and Lockout State Machine
 Before the vehicle's ignition relay can be closed, the system initiates an obligatory safety verification state:
-* **The Monitoring Baseline:** The driver faces the dashboard camera while the software evaluates baseline drowsiness indicators directly from face detection bounding boxes. 
-* **The Penalty Matrix:** If the initialization routine registers an immediate fatigue state (prolonged eye closure or frequent yawning signatures), the application flags a verification failure. The script registers the failure count to a local cache file and initiates a hard software lockout, forcing the operator to wait before trying again:
+* **The Monitoring Baseline:** The driver faces the vehicle's A-pillar mounted camera while the software evaluates baseline drowsiness indicators directly from face detection bounding boxes. 
+* **The Punsihment Mechanism:** If the initialization routine registers an immediate fatigue state (prolonged eye closure or frequent yawning signatures), the application flags a verification failure. The script registers the failure count to a local cache file and initiates a hard software lockout, forcing the operator to wait before trying again:
   * **Failure 1:** Activates an unbypassable 5-minute cooldown timer.
   * **Failure 2:** Escalates to an unbypassable 10-minute cooldown timer.
   * **Failure 3:** Imposes a maximum 15-minute cooldown timer.
@@ -13,24 +13,29 @@ Before the vehicle's ignition relay can be closed, the system initiates an oblig
 
 ### 2. High-Frequency Video Capture and Streaming Pipeline
 Once the driver is authorized and the vehicle is in operation, the dynamic tracking loop initializes:
-* A dashboard-mounted USB webcam serves as the main optical input device, continuously streaming raw image frames inside the Toyota Avanza cabin.
-* The video capture layer relies on optimized OpenCV bindings running within an isolated Docker container, which maps the physical video device directly to the container runtime. Frames are pulled into a matrix array at a fixed frame-per-second (FPS) rate, keeping memory allocations structured and balanced.
+* **Ergonomic Camera Placement:** A standard USB webcam is physically positioned on the driver-side **A-pillar** of the Toyota Avanza. This specific mounting location ensures the optical sensor captures an optimal angular profile of the driver's face while remaining completely non-intrusive, preserving an unobstructed field of view during operation.
+* **Native Ultralytics Stream Processing:** The video frame ingestion, buffering, and frame management are handled directly through native **Ultralytics execution pipelines** running within an isolated Docker container. This maps the physical video device straight to the ML frame-handler, keeping data pathways streamlined and minimizing conversion overhead.
 
 ### 3. TensorRT Edge Inference and Single-Target Tracking
 The computational core on the Nvidia Jetson Orin Nano processes incoming video streams utilizing advanced machine learning acceleration graphs and strict object tracking constraints:
-* Raw image matrices are forwarded directly to the YOLOv11n engine model, which has been compiled down to a specialized TensorRT format to squeeze maximum efficiency out of the Jetson's CUDA cores.
+* Raw image matrices are forwarded directly into the YOLOv11n engine model, which has been compiled down to a specialized TensorRT format to squeeze maximum efficiency out of the Jetson's CUDA cores.
 * Because the system utilizes a pure YOLO object detection architecture rather than landmark estimation, it detects and isolates targeted facial feature classes (such as the face, open/closed eyes, and mouth state) using high-precision bounding boxes.
-* To guarantee system stability and eliminate noise from passenger movement, the application integrates the **ByteTrack** tracking algorithm. The tracking configuration is explicitly restricted to a maximum of **one target**, locking the tracking frame strictly onto the primary driver.
-* The system evaluates these bounding box states mathematically over time. If the model detects closed eye frames or active yawning patterns that cross safe operational thresholds for a consecutive number of frames, the application declares an active driver emergency.
+* To guarantee system stability and eliminate noise from passenger movement, the application integrates the **ByteTrack** tracking algorithm via the Ultralytics API. The tracking configuration is explicitly restricted to a maximum of **one target**, locking the tracking frame strictly onto the primary driver.
+* **Continuous Drive Mode Monitoring:** Once the pre-drive evaluation is cleared, the driver is permitted to navigate continuously. The system transitions into an active driving assessment loop, using mathematical evaluations of bounding boxes over time to constantly parse fatigue levels.
 
-### 4. Low-Latency Microcontroller Signal Offloading
+### 4. Escalated Severity Alert Logic
+When drowsiness profiles are captured mid-transit, the system executes a real-time tiered escalation routine based on anomaly duration and severity:
+* **Early Fatigue Warning:** Upon detecting initial micro-sleep indicators or early-stage yawning trends, the system triggers localized audio warnings, utilizing the core application interface to prompt the driver to adjust focus.
+* **Severe Fatigue Intervention:** If the vision pipeline flags severe, sustained drowsiness anomalies (e.g., critical extended eye closure times), the automation logic immediately escalates the response. The platform plays high-priority voice prompts specifically alerting passengers within the vehicle cabin to step in and take immediate action. Simultaneously, an unrelenting **3000 Hz high-frequency distress alarm** is activated, piercing through the vehicle to interrupt the micro-sleep state. This multi-channel alert loop runs continuously and will remain engaged until the driver demonstrates full visual alertness and normal tracking metrics.
+
+### 5. Low-Latency Microcontroller Signal Offloading
 To protect core operating threads and ensure immediate reaction times, heavy edge inference processing is completely decoupled from the physical alert hardware execution:
 * When a persistent drowsiness state is confirmed by the TensorRT engine, the main Python application thread constructs a lightweight, single-byte serial interrupt trigger packet.
 * This execution code is instantly transmitted down an automated hardware abstraction layer via the PySerial communication module, communicating over a hardwired USB-to-TTL UART serial bridge connected directly to the ESP8266 (NodeMCU) microcontroller.
 
-### 5. Multi-Channel Safety Countermeasure Actuation
+### 6. Multi-Channel Safety Countermeasure Actuation
 The ESP8266 acts as a dedicated real-time hardware handler, listening continuously for incoming interrupt commands from the Jetson:
-* **Acoustic Warning Intervention:** The moment the ESP8266 decodes the serial alarm byte, it routes a high-priority sound signal straight into the auxiliary/USB audio interface of the Toyota Avanza. This forces high-decibel, high-frequency alert tracks to blare directly over the car speakers, cutting through driver disorientation.
+* **Acoustic Warning Intervention:** The moment the ESP8266 decodes the serial alarm byte, it routes a high-priority sound signal straight into the auxiliary/USB audio interface of the Toyota Avanza. This forces high-decibel, high-frequency alert tracks—and the severe 3000 Hz critical buzzer alarm—to blare directly over the car speakers, cutting through driver disorientation.
 * **Mechanical Countermeasures:** Simultaneously, the microcontroller shifts its onboard GPIO pins from low to high states. This voltage spike triggers mechanical relay boards linked to physical cabin alerts, completing a secure, closed-loop safety intervention that keeps operating conditions safe.
 
 ## Model Training & Performance Optimization
@@ -46,5 +51,5 @@ Maximizing performance on edge hardware required three key architectural steps:
 2. Ensure your Jetson environment has a 50 GB swap file allocated and that the Docker daemon is active.
 3. Build and launch the provided container configuration using the setup scripts to compile the local environment with TensorRT dependencies.
 4. Open the Arduino IDE, load the provided `.ino` firmware file from the firmware directory, and flash it onto your ESP8266 hardware.
-5. Interface the ESP8266 with your vehicle relays, connect your webcam to the Jetson via USB, and map the Jetson's audio output into the auxiliary/USB input of the Toyota Avanza's sound system.
+5. Interface the ESP8266 with your vehicle relays, connect your webcam mounted on the vehicle's A-pillar to the Jetson via USB, and map the Jetson's audio output into the auxiliary/USB input of the Toyota Avanza's sound system.
 6. Identify the active USB/serial port binding between the Jetson and the ESP8266, update the matching parameters inside the core Python configuration, and run the system container to initialize driver protection.
