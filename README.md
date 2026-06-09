@@ -4,7 +4,7 @@ The system operates via an automated, distributed network topology that bridges 
 
 ### 1. Pre-Drive Security Check and Lockout State Machine
 Before the vehicle's ignition relay can be closed, the system initiates an obligatory safety verification state:
-* **The Monitoring Baseline:** The driver faces the dashboard camera while the software evaluates baseline eye activity and facial landmarks. 
+* **The Monitoring Baseline:** The driver faces the dashboard camera while the software evaluates baseline drowsiness indicators directly from face detection bounding boxes. 
 * **The Penalty Matrix:** If the initialization routine registers an immediate fatigue state (prolonged eye closure or frequent yawning signatures), the application flags a verification failure. The script registers the failure count to a local cache file and initiates a hard software lockout, forcing the operator to wait before trying again:
   * **Failure 1:** Activates an unbypassable 5-minute cooldown timer.
   * **Failure 2:** Escalates to an unbypassable 10-minute cooldown timer.
@@ -16,11 +16,12 @@ Once the driver is authorized and the vehicle is in operation, the dynamic track
 * A dashboard-mounted USB webcam serves as the main optical input device, continuously streaming raw image frames inside the Toyota Avanza cabin.
 * The video capture layer relies on optimized OpenCV bindings running within an isolated Docker container, which maps the physical video device directly to the container runtime. Frames are pulled into a matrix array at a fixed frame-per-second (FPS) rate, keeping memory allocations structured and balanced.
 
-### 3. TensorRT Edge Inference and Feature Extraction
-The computational core on the Nvidia Jetson Orin Nano processes incoming video streams utilizing advanced machine learning acceleration graphs:
+### 3. TensorRT Edge Inference and Single-Target Tracking
+The computational core on the Nvidia Jetson Orin Nano processes incoming video streams utilizing advanced machine learning acceleration graphs and strict object tracking constraints:
 * Raw image matrices are forwarded directly to the YOLOv11n engine model, which has been compiled down to a specialized TensorRT format to squeeze maximum efficiency out of the Jetson's CUDA cores.
-* The model localizes the driver's face, isolating critical regions of interest (ROIs) covering the left eye, right eye, and mouth structure.
-* The system evaluates these coordinates using geometric algorithms to calculate facial metrics: the Eye Aspect Ratio (EAR) to check for dropped eyelids, and the Mouth Aspect Ratio (MAR) to monitor yawning depth. If the calculated metrics cross below (for EAR) or above (for MAR) safe operational thresholds for a consecutive number of frames, the application declares an active driver emergency.
+* Because the system utilizes a pure YOLO object detection architecture rather than landmark estimation, it detects and isolates targeted facial feature classes (such as the face, open/closed eyes, and mouth state) using high-precision bounding boxes.
+* To guarantee system stability and eliminate noise from passenger movement, the application integrates the **ByteTrack** tracking algorithm. The tracking configuration is explicitly restricted to a maximum of **one target**, locking the tracking frame strictly onto the primary driver.
+* The system evaluates these bounding box states mathematically over time. If the model detects closed eye frames or active yawning patterns that cross safe operational thresholds for a consecutive number of frames, the application declares an active driver emergency.
 
 ### 4. Low-Latency Microcontroller Signal Offloading
 To protect core operating threads and ensure immediate reaction times, heavy edge inference processing is completely decoupled from the physical alert hardware execution:
