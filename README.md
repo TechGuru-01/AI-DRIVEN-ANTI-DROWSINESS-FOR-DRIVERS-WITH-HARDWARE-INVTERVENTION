@@ -1,5 +1,5 @@
 ## System Architecture & Signal Workflow
-* * link: https://www.researchgate.net/profile/Grazielle-Nychole-Dela-Cruz/publication/401350914_Lumina_Alert_A_YOLOv11n-Based_Embedded_System_for_Real-Time_Driver_Drowsiness_Detection_and_Multi-Modal_Intervention/links/69afdb1ba91b826e4348be2c/Lumina-Alert-A-YOLOv11n-Based-Embedded-System-for-Real-Time-Driver-Drowsiness-Detection-and-Multi-Modal-Intervention.pdf
+* link: https://www.researchgate.net/profile/Grazielle-Nychole-Dela-Cruz/publication/401350914_Lumina_Alert_A_YOLOv11n-Based_Embedded_System_for_Real-Time_Driver_Drowsiness_Detection_and_Multi-Modal_Intervention/links/69afdb1ba91b826e4348be2c/Lumina-Alert-A-YOLOv11n-Based-Embedded-System-for-Real-Time-Driver-Drowsiness-Detection-and-Multi-Modal-Intervention.pdf
 
 The system operates via an automated, distributed network topology that bridges local high-speed computer vision with deterministic embedded hardware response loops. The complete computational and mechanical process is executed through the following distinct operating phases:
 
